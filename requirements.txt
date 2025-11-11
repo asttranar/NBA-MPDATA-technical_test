@@ -1,0 +1,16 @@
+#format & linting
+pylint
+black
+flake8
+ipykernel
+
+#dev
+pandas
+seaborn
+matplotlib
+numpy
+scikit-learn
+joblib
+openpyxl
+
+
