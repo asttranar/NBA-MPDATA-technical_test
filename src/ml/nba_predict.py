@@ -1,5 +1,5 @@
 """
-script to predict the TARGET_5Yrs column from a CSV file. This work on a 
+script to predict the TARGET_5Yrs column from a CSV file. This work on a
 new dataset, only if it has the same features than the subject file (nba_logreg.csv)
 """
 
@@ -13,18 +13,16 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from xgboost import XGBClassifier
-
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     classification_report,
+    make_scorer,
     recall_score,
 )
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import make_scorer
-
+from xgboost import XGBClassifier
 
 
 class NBAPredictor:
@@ -41,39 +39,60 @@ class NBAPredictor:
         self.scaler_: Optional[StandardScaler] = None
         self.feature_columns_: Optional[list[str]] = None
 
-    
-    def data_load(csv_path: str) -> pd.DataFrame:
+    def data_load(self, csv_path: str) -> pd.DataFrame:
         """
         Load data from a CSV file.
         """
 
         return pd.read_csv(csv_path)
 
-    
-    def data_preprocess(self, df: pd.DataFrame) -> pd.DataFrame: 
-            """
-            data cleaning (percentages) and features engineering 
-            """
-            res= df.copy()
-            res["3P%"].fillna(0.0, inplace=True)
-            
-            res["3P%"] = res.apply(lambda row : 0.0 if row["3PA"] == 0 else row["3P Made"] / row["3PA"], axis=1)
-            res["FT%"] = res.apply(lambda row : 0.0 if row["FTA"] == 0 else row["FTM"] / row["FTA"], axis=1)
-            res["FG%"] = res.apply(lambda row : 0.0 if row["FGA"] == 0 else row["FGM"] / row["FGA"], axis=1)
+    def data_preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        data cleaning (percentages) and features engineering
+        """
+        res = df.copy()
 
-            res["ASTperTOV"] = res["AST"] / res["TOV"]
-            res["ASTPTSperTOV"] = (res["AST"] + res["PTS"]) / res["TOV"]
+        res["3P%"] = res.apply(
+            lambda row: 0.0 if row["3PA"] == 0 else row["3P Made"] / row["3PA"], axis=1
+        )
+        res["FT%"] = res.apply(
+            lambda row: 0.0 if row["FTA"] == 0 else row["FTM"] / row["FTA"], axis=1
+        )
+        res["FG%"] = res.apply(
+            lambda row: 0.0 if row["FGA"] == 0 else row["FGM"] / row["FGA"], axis=1
+        )
 
-            cols = ['GP','PTS', 'FGM', 'FGA', 'FG%', '3P Made', '3PA',
-            '3P%', 'FTM', 'FTA', 'FT%', 'OREB', 'DREB', 'REB', 'AST', 'STL', 'BLK',
-            'TOV', "ASTperTOV", "ASTPTSperTOV"]
+        res["ASTperTOV"] = res["AST"] / res["TOV"]
+        res["ASTPTSperTOV"] = (res["AST"] + res["PTS"]) / res["TOV"]
 
+        cols = [
+            "GP",
+            "PTS",
+            "FGM",
+            "FGA",
+            "FG%",
+            "3P Made",
+            "3PA",
+            "3P%",
+            "FTM",
+            "FTA",
+            "FT%",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "ASTperTOV",
+            "ASTPTSperTOV",
+        ]
 
-            for col in cols:
-                res[f"{col}perMIN"] = res[col] / res["MIN"]
+        for col in cols:
+            res[f"{col}perMIN"] = res[col] / res["MIN"]
 
-            return res
-    
+        return res
+
     def data_split(
         self, data: pd.DataFrame, test_size: float = 0.2
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
@@ -93,7 +112,6 @@ class NBAPredictor:
         )
         return x_train, x_test, y_train, y_test
 
-    
     def train(
         self,
         x_train: pd.DataFrame,
@@ -108,7 +126,7 @@ class NBAPredictor:
         x_train_numeric = x_train.select_dtypes(include=[np.number])
         self.feature_columns_ = x_train_numeric.columns
 
-        if not self.feature_columns_:
+        if not list(self.feature_columns_):
             raise ValueError("No numeric feature columns found for training.")
 
         pipeline = Pipeline(
@@ -117,47 +135,31 @@ class NBAPredictor:
                 (
                     "clf",
                     XGBClassifier(
+                        # Booster parameters
+                        eta=0.01,
+                        gamma=0,
+                        max_depth=3,
+                        min_child_weight=1,
+                        max_delta_step=0,
+                        subsample=1,
+                        lambda_=1,
+                        alpha=0,
+                        n_estimators=500,
+                        tree_method="auto",
+                        importance_type="gain",
+                        # Learning task parameters
                         objective="binary:logistic",
-                        eval_metric="logloss",
-                        use_label_encoder=False,
+                        eval_metric="auc",
                         random_state=42,
                     ),
                 ),
             ]
         )
 
-        param_grid = {
-            "clf__max_depth": [3, 5, 7],
-            "clf__learning_rate": [0.01, 0.1, 0.3, 0.5],
-            "clf__n_estimators": [100, 300, 500],
-        }
+        pipeline.fit(x_train_numeric, y_train)
 
-        scorer = make_scorer(recall_score, pos_label=1)
-
-        cv_strategy = StratifiedKFold(
-            n_splits=5,
-            shuffle=True,
-            random_state=42,
-        )
-
-        grid_search = GridSearchCV(
-            estimator=pipeline,
-            param_grid=param_grid,
-            scoring=scorer,
-            cv=cv_strategy,
-            n_jobs=-1,
-            verbose=1,
-        )
-
-        grid_search.fit(x_train_numeric, y_train)
-
-        best_pipeline = grid_search.best_estimator_
-        self.scaler_ = best_pipeline.named_steps["scaler"]
-        self.model_ = best_pipeline.named_steps["clf"]
-
-        print("=== Best CV Result ===")
-        print(f"Best params: {grid_search.best_params_}")
-        print(f"Best mean CV recall: {grid_search.best_score_:.4f}")
+        self.scaler_ = pipeline.named_steps["scaler"]
+        self.model_ = pipeline.named_steps["clf"]
 
         if save_dir is not None:
             os.makedirs(save_dir, exist_ok=True)
@@ -169,7 +171,6 @@ class NBAPredictor:
             joblib.dump(self.model_, model_path)
             joblib.dump(list(self.feature_columns_), features_path)
 
-    
     def model_load(self, model_dir: str) -> None:
         """
         Load the StandardScaler, model weights and feature list from disk.
@@ -183,20 +184,20 @@ class NBAPredictor:
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file not found at '{model_path}'.")
         if not os.path.exists(features_path):
-            raise FileNotFoundError(f"Feature list file not found at '{features_path}'.")
+            raise FileNotFoundError(
+                f"Feature list file not found at '{features_path}'."
+            )
 
         self.scaler_ = joblib.load(scaler_path)
         self.model_ = joblib.load(model_path)
         self.feature_columns_ = joblib.load(features_path)
 
-    
     def predict(self, x_test, y_test) -> pd.DataFrame:
         """
         Predict TARGET_5Yrs using the trained model.
         """
         if self.model_ is None or self.scaler_ is None or self.feature_columns_ is None:
             raise ValueError("Model, scaler or feature columns are not loaded/trained.")
-
 
         missing_features = [
             col for col in self.feature_columns_ if col not in (x_test.columns.tolist())
@@ -208,13 +209,15 @@ class NBAPredictor:
                 f"test data: {missing_str}"
             )
 
-        x_test_numeric = x_test[self.feature_columns_]
+        x_test_numeric = x_test[list(self.feature_columns_)]
         x_test_scaled = self.scaler_.transform(x_test_numeric)
 
         y_pred = self.model_.predict(x_test_scaled)
+        y_proba = self.model_.predict_proba(x_test_scaled)[:, 1]
 
         result_df = pd.concat([x_test, y_test], axis=1)
         result_df["TARGET_5Yrs_pred"] = y_pred
+        result_df["TARGET_5Yrs_pred_proba"] = y_proba
 
         return result_df
 
@@ -264,18 +267,16 @@ class NBAPredictor:
             pdf.savefig(fig_text)
             plt.close(fig_text)
 
-            #Feature importances
+            # Feature importances
             importances = self.model_.feature_importances_
             indices = np.argsort(importances)[::-1]
             sorted_features = self.feature_columns_[indices]
             sorted_importances = importances[indices]
             # Plot
-            fig_fi, ax_fi = plt.subplots()
+            fig_fi, ax_fi = plt.subplots(figsize=(6, 10))
             ax_fi.barh(sorted_features, sorted_importances)
-            ax_fi.gca().invert_yaxis()  
-            ax_fi.xlabel("Gain Importance")
-            ax_fi.title("XGBoost Feature Importance (Gain)")
-            ax_fi.tight_layout()
+            ax_fi.set_title("XGBoost Feature Importance (Gain)")
+            fig_fi.tight_layout()
             pdf.savefig(fig_fi)
             plt.close(fig_text)
 
@@ -283,14 +284,15 @@ class NBAPredictor:
 if __name__ == "__main__":
     # Example usage (can be removed or adapted as needed).
     #
-    # data = data_load("nba_logreg.csv")
-    # predictor = NBAPredictor()
-    # x_train_df, x_test_df, y_train_series, y_test_series = predictor.data_split(data)
-    # predictor.train(x_train_df, y_train_series, save_dir="models")
-    # y_test_pred = predictor.model_.predict(
-    #     predictor.scaler_.transform(
-    #         x_test_df[predictor.feature_columns_].select_dtypes(include=[np.number])
-    #     )
-    # )
-    # evaluate_model(y_test_series.values, y_test_pred, results_dir="results")
-    pass
+    predictor = NBAPredictor()
+    data = predictor.data_load("./data/nba_logreg.csv")
+    data = predictor.data_preprocess(data)
+    x_train_df, x_test_df, y_train_series, y_test_series = predictor.data_split(data)
+
+    predictor.train(x_train_df, y_train_series, save_dir="models")
+    y_test_pred = predictor.model_.predict(
+        predictor.scaler_.transform(
+            x_test_df[predictor.feature_columns_].select_dtypes(include=[np.number])
+        )
+    )
+    predictor.evaluate_model(y_test_series.values, y_test_pred, results_dir="results/")
