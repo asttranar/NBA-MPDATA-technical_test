@@ -65,7 +65,7 @@ Then go to your navigator and go to to `http://127.0.0.1:8000/docs`. Clic the `P
 ## Dev summary
 
 - data cleaning : Correct percentages
-- feature engineering : add per minutes features and ratio AST to TOV and (AST+PTS) to TOV
+- feature engineering : add per minutes features and some addition/ratio like AST to TOV and (AST+PTS) to TOV (cf notebook)
 - classification problem with optimisation (during training/valiation) with respect to positive recall.
 - API developed with Fast API
 
