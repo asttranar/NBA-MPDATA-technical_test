@@ -58,7 +58,16 @@ For the API usage, launch this CLI.
 ```bash
 uvicorn src.app.main:APP --reload
 ```
-Then go to your navigator and go to to `data`
+Then go to your navigator and go to to `http://127.0.0.1:8000/docs`. Clic the `POST/predict` banner. Click `Try it out`. Fill the value of the JSON as you please then click the `execute` button to launch the prediction. You can read the result in the `Response body`.
+
+---
+
+## Dev summary
+
+- data cleaning : Correct percentages
+- feature engineering : add per minutes features and ratio AST to TOV and (AST+PTS) to TOV
+- classification problem with optimisation (during training/valiation) with respect to positive recall.
+- API developed with Fast API
 
 ---
 
