@@ -17,6 +17,51 @@ Install the right virtual environment:
 
 ---
 
+## Arborescence
+
+To reproduce code, we advice you to follow this data arborescence (this empty arborescence is pushed):  
+
+```                    
+├── data  
+│   └── nbalogreg.csv
+│
+├── src/                      
+│   ├── ml
+│   │    └── nba_predict.py
+│   └── app
+│        └── main.py
+│
+├── notebooks/
+│   ├── exploration.ipynb                   
+│
+├── results/                  
+│
+├── models/                   
+│
+└── # rest of the repo
+```
+
+---
+
+## CLI & API Usage
+
+All commands are launched from the root directory.  
+
+
+Train and test directly with CLI. The data must be stored in `data` directory. It performs training (with best parameters from the grid search) and test. Store the results in `results` directory and model artefact in `models.
+
+```bash
+python ./src/ml/nba_predict.py   
+```
+
+For the API usage, launch this CLI.
+```bash
+uvicorn src.app.main:APP --reload
+```
+Then go to your navigator and go to to `data`
+
+---
+
 ## Code quality
 
 Formating

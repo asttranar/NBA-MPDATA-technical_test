@@ -16,10 +16,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     classification_report,
-    make_scorer,
-    recall_score,
 )
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
@@ -192,7 +190,7 @@ class NBAPredictor:
         self.model_ = joblib.load(model_path)
         self.feature_columns_ = joblib.load(features_path)
 
-    def predict(self, x_test, y_test) -> pd.DataFrame:
+    def predict(self, x_test) -> pd.DataFrame:
         """
         Predict TARGET_5Yrs using the trained model.
         """
@@ -215,11 +213,7 @@ class NBAPredictor:
         y_pred = self.model_.predict(x_test_scaled)
         y_proba = self.model_.predict_proba(x_test_scaled)[:, 1]
 
-        result_df = pd.concat([x_test, y_test], axis=1)
-        result_df["TARGET_5Yrs_pred"] = y_pred
-        result_df["TARGET_5Yrs_pred_proba"] = y_proba
-
-        return result_df
+        return y_pred, y_proba
 
     def evaluate_model(
         self,
@@ -290,9 +284,9 @@ if __name__ == "__main__":
     x_train_df, x_test_df, y_train_series, y_test_series = predictor.data_split(data)
 
     predictor.train(x_train_df, y_train_series, save_dir="models")
-    y_test_pred = predictor.model_.predict(
-        predictor.scaler_.transform(
-            x_test_df[predictor.feature_columns_].select_dtypes(include=[np.number])
-        )
+    predictions = predictor.predict(
+        x_test_df[predictor.feature_columns_].select_dtypes(include=[np.number])
     )
-    predictor.evaluate_model(y_test_series.values, y_test_pred, results_dir="results/")
+    predictor.evaluate_model(
+        y_test_series.values, predictions[0], results_dir="results/"
+    )
