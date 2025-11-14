@@ -82,3 +82,8 @@ Lint check
 ```bash
 make lint-check
 ```
+
+## Remarks
+
+- notebook is left with the cell outputs
+- for the sake of the interview evaluation (if can't or don't want to execute the code), all the data and results are upload
