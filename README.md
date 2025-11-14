@@ -1,4 +1,4 @@
-# Electricity Consumption Tech Case - Tilt Energy x Nathan Naudé
+# NBA investment Tech Case - MP DATA x Nathan Naudé
 
 ## Description
 Repository of candidate Nathan Naudé for tech case, part of the recruitment processus of Tilt Energy 2025.  
